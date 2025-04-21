@@ -3,20 +3,20 @@ import App from "../App";
 
 function Tabs() {
   const baseTabs = [
-    { label: "Dashboard", content: {} },
-    { label: "Banking", content: {} },
-    { label: "Telefonie", content: {} },
-    { label: "Accounting", content: {} },
-    { label: "Verkauf", content: {} },
-    { label: "Statistik", content: {} },
-    { label: "Post Office", content: {} },
-    { label: "Administration", content: {} },
-    { label: "Help", content: {} },
-    { label: "Warenbestand", content: {} },
-    { label: "Auswahllisten", content: {} },
-    { label: "Einkauf", content: {} },
-    { label: "Rechn", content: {} },
-    { label: "Lagerverwaitung", content: {} },];
+    { label: "Dashboard", url: "/dashboard", content: {} },
+    { label: "Banking", url: "/banking", content: {} },
+    { label: "Telefonie",url: "/telefonie", content: {} },
+    { label: "Accounting",url: "/accounting", content: {} },
+    { label: "Verkauf",url: "/verkauf", content: {} },
+    { label: "Statistik",url: "/statistik", content: {} },
+    { label: "Post Office",url: "/post-office", content: {} },
+    { label: "Administration",url: "/administration", content: {} },
+    { label: "Help",url: "/help", content: {} },
+    { label: "Warenbestand",url: "/warenbestand", content: {} },
+    { label: "Auswahllisten",url: "/auswahllisten", content: {} },
+    { label: "Einkauf",url: "/einkauf", content: {} },
+    { label: "Rechn",url: "/rechn", content: {} },
+    { label: "Lagerverwaitung",url: "/lagerverwaitung", content: {} },];
 
   const tabsWithPinned = baseTabs.map((tab) => ({ ...tab, pinned: false }));
 
