@@ -50,6 +50,19 @@ const App = ({ tabs }) => {
 
   useEffect(() => {
     if (tabOrder.length) {
+      const currentPath = window.location.pathname;
+      const tabIndex = tabOrder.findIndex(tab => tab.url === currentPath);
+      
+      if (tabIndex !== -1) {
+        setActiveTab(tabIndex);
+      } else if (tabOrder[0] && tabOrder[0].url) {
+        window.history.pushState({}, "", tabOrder[0].url);
+      }
+    }
+  }, [tabOrder]);
+
+  useEffect(() => {
+    if (tabOrder.length) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tabOrder));
     }
   }, [tabOrder]);
@@ -109,58 +122,6 @@ const App = ({ tabs }) => {
     return () => window.removeEventListener("resize", calculateTabs);
   }, [tabOrder]);
 
-  useEffect(() => {
-    const calculateTabs = () => {
-      if (!containerRef.current) return;
-      
-      const containerWidth = containerRef.current.offsetWidth;
-      const overflowButtonWidth = 100; 
-      let availableWidth = containerWidth - overflowButtonWidth;
-      let totalWidth = 0;
-      const newVisible = [];
-      const newOverflow = [];
-
-      while (tabsRefs.current.length < tabOrder.length) {
-        tabsRefs.current.push(null);
-      }
-
-      const pinnedTabs = tabOrder.filter(tab => tab.pinned);
-      const unpinnedTabs = tabOrder.filter(tab => !tab.pinned);
-      
-
-      for (let i = 0; i < pinnedTabs.length; i++) {
-        const tab = pinnedTabs[i];
-        const index = tabOrder.indexOf(tab);
-        const tabWidth = tabsRefs.current[index]?.offsetWidth || 100; 
-        
-        if (totalWidth + tabWidth <= availableWidth) {
-          newVisible.push(tab);
-          totalWidth += tabWidth;
-        } else {
-          newOverflow.push({ ...tab, index });
-        }
-      }
-      
-      for (let i = 0; i < unpinnedTabs.length; i++) {
-        const tab = unpinnedTabs[i];
-        const index = tabOrder.indexOf(tab);
-        const tabWidth = tabsRefs.current[index]?.offsetWidth || 100;
-        
-        if (totalWidth + tabWidth <= availableWidth) {
-          newVisible.push(tab);
-          totalWidth += tabWidth;
-        } else {
-          newOverflow.push({ ...tab, index });
-        }
-      }
-
-      setVisibleTabs(newVisible);
-      setOverflowTabs(newOverflow);
-    };
-
-    setTimeout(calculateTabs, 0);
-  }, [tabOrder]);
-
   const handleDragStart = (e, index) => {
     e.dataTransfer.setData("dragIndex", String(index));
   };
@@ -200,7 +161,21 @@ const App = ({ tabs }) => {
     const newActiveIndex = sortedTabs.indexOf(tab);
     if (activeTab !== newActiveIndex) {
       setActiveTab(newActiveIndex);
+      navigateToTab(newActiveIndex);
     }
+  };
+
+  const navigateToTab = (index) => {
+    const tab = tabOrder[index];
+    if (tab && tab.url) {
+      window.history.pushState({}, "", tab.url);
+      document.title = tab.label || document.title;
+    }
+  };
+
+  const handleTabClick = (index) => {
+    setActiveTab(index);
+    navigateToTab(index);
   };
 
   const renderContent = () => (
@@ -234,7 +209,7 @@ const App = ({ tabs }) => {
             >
               <button
                 ref={(el) => (tabsRefs.current[actualIndex] = el)}
-                onClick={() => setActiveTab(actualIndex)}
+                onClick={() => handleTabClick(actualIndex)}
                 className={`px-4 py-3 border-t-2 text-sm font-medium transition-colors duration-300 flex items-center relative ${
                   isActive
                     ? "border-blue-500 text-gray-900 bg-gray-100"
@@ -294,7 +269,7 @@ const App = ({ tabs }) => {
                   {({ active }) => (
                     <div className="flex items-center justify-between w-full px-4 py-2">
                       <button
-                        onClick={() => setActiveTab(tab.index)}
+                        onClick={() => handleTabClick(tab.index)}
                         className={`${
                           active ? "text-gray-900" : "text-gray-700"
                         } text-left text-sm flex-grow`}
@@ -330,4 +305,6 @@ const App = ({ tabs }) => {
       {renderContent()}
     </div>
   );
-};export default App;
+};
+
+export default App;
