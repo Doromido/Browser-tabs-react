@@ -18,14 +18,16 @@ const App = ({ tabs }) => {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved)) {
       const orderedTabs = saved
-        .map((savedTab) =>
-          tabs.find((t) => t.label === savedTab.label)
-            ? {
-                ...tabs.find((t) => t.label === savedTab.label),
-                pinned: savedTab.pinned || false,
-              }
-            : null
-        )
+        .map((savedTab) => {
+          const originalTab = tabs.find((t) => t.label === savedTab.label);
+          if (originalTab) {
+            return {
+              ...originalTab,
+              pinned: savedTab.pinned || false,
+            };
+          }
+          return null;
+        })
         .filter(Boolean);
 
       const missingTabs = tabs.filter(
@@ -63,62 +65,66 @@ const App = ({ tabs }) => {
 
   useEffect(() => {
     if (tabOrder.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tabOrder));
+      const tabOrderForStorage = tabOrder.map(tab => ({
+        label: tab.label,
+        url: tab.url,
+        pinned: tab.pinned,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tabOrderForStorage));
     }
   }, [tabOrder]);
 
+  const calculateTabs = () => {
+    if (!containerRef.current) return;
+    
+    const containerWidth = containerRef.current.offsetWidth;
+    const overflowButtonWidth = 100;
+    let availableWidth = containerWidth - overflowButtonWidth;
+    let totalWidth = 0;
+    const newVisible = [];
+    const newOverflow = [];
+
+    while (tabsRefs.current.length < tabOrder.length) {
+      tabsRefs.current.push(null);
+    }
+
+    const pinnedTabs = tabOrder.filter(tab => tab.pinned);
+    const unpinnedTabs = tabOrder.filter(tab => !tab.pinned);
+
+    for (let i = 0; i < pinnedTabs.length; i++) {
+      const tab = pinnedTabs[i];
+      const index = tabOrder.indexOf(tab);
+      const tabWidth = tabsRefs.current[index]?.offsetWidth || 100;
+
+      if (totalWidth + tabWidth <= availableWidth) {
+        newVisible.push(tab);
+        totalWidth += tabWidth;
+      } else {
+        newOverflow.push({ ...tab, index });
+      }
+    }
+
+    for (let i = 0; i < unpinnedTabs.length; i++) {
+      const tab = unpinnedTabs[i];
+      const index = tabOrder.indexOf(tab);
+      const tabWidth = tabsRefs.current[index]?.offsetWidth || 100;
+
+      if (totalWidth + tabWidth <= availableWidth) {
+        newVisible.push(tab);
+        totalWidth += tabWidth;
+      } else {
+        newOverflow.push({ ...tab, index });
+      }
+    }
+
+    setVisibleTabs(newVisible);
+    setOverflowTabs(newOverflow);
+  };
+
   useEffect(() => {
-    const calculateTabs = () => {
-      if (!containerRef.current) return;
-      
-      const containerWidth = containerRef.current.offsetWidth;
-      const overflowButtonWidth = 100; 
-      let availableWidth = containerWidth - overflowButtonWidth;
-      let totalWidth = 0;
-      const newVisible = [];
-      const newOverflow = [];
-
-      while (tabsRefs.current.length < tabOrder.length) {
-        tabsRefs.current.push(null);
-      }
-
-      const pinnedTabs = tabOrder.filter(tab => tab.pinned);
-      const unpinnedTabs = tabOrder.filter(tab => !tab.pinned);
-      
-      for (let i = 0; i < pinnedTabs.length; i++) {
-        const tab = pinnedTabs[i];
-        const index = tabOrder.indexOf(tab);
-        const tabWidth = tabsRefs.current[index]?.offsetWidth || 100; 
-        
-        if (totalWidth + tabWidth <= availableWidth) {
-          newVisible.push(tab);
-          totalWidth += tabWidth;
-        } else {
-          newOverflow.push({ ...tab, index });
-        }
-      }
-      
-      for (let i = 0; i < unpinnedTabs.length; i++) {
-        const tab = unpinnedTabs[i];
-        const index = tabOrder.indexOf(tab);
-        const tabWidth = tabsRefs.current[index]?.offsetWidth || 100; 
-        
-        if (totalWidth + tabWidth <= availableWidth) {
-          newVisible.push(tab);
-          totalWidth += tabWidth;
-        } else {
-          newOverflow.push({ ...tab, index });
-        }
-      }
-
-      setVisibleTabs(newVisible);
-      setOverflowTabs(newOverflow);
-    };
-
-    setTimeout(calculateTabs, 0);
-    
+    calculateTabs();
     window.addEventListener("resize", calculateTabs);
-    
+
     return () => window.removeEventListener("resize", calculateTabs);
   }, [tabOrder]);
 
@@ -216,6 +222,7 @@ const App = ({ tabs }) => {
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 }`}
               >
+                {tab.icon && <span className="mr-2">{tab.icon}</span>}
                 {tab.label}
 
                 {(isPinned || isHovered) && (
@@ -229,7 +236,7 @@ const App = ({ tabs }) => {
                     title={isPinned ? "Unpin" : "Pin"}
                   >
                     <FaThumbtack 
-                      size={12} 
+                      size={10} 
                       style={{ 
                         transform: isPinned ? 'rotate(0deg)' : 'rotate(90deg)',
                         transition: 'transform 0.2s'
@@ -243,62 +250,68 @@ const App = ({ tabs }) => {
         })}
 
         {overflowTabs.length > 0 && (
-          <Menu as="div" className="relative inline-block text-left ml-auto">
-            <Menu.Button 
-              ref={overflowButtonRef}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">
-              More ({overflowTabs.length})
-              <svg
-                className="ml-1 h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </Menu.Button>
-            <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white border border-gray-200 divide-y divide-gray-100 rounded-md shadow-lg focus:outline-none z-10">
-              {overflowTabs.map((tab) => (
-                <Menu.Item key={tab.index}>
-                  {({ active }) => (
-                    <div className="flex items-center justify-between w-full px-4 py-2">
-                      <button
-                        onClick={() => handleTabClick(tab.index)}
-                        className={`${
-                          active ? "text-gray-900" : "text-gray-700"
-                        } text-left text-sm flex-grow`}
-                      >
-                        {tab.label}
-                      </button>
-                      
-                      <button
-                        onClick={(e) => togglePin(tab.index, e)}
-                        className={`${
-                          tab.pinned ? "text-red-500" : "text-gray-400 hover:text-red-500"
-                        } flex-shrink-0 ml-2`}
-                        title={tab.pinned ? "Unpin" : "Pin"}
-                      >
-                        <FaThumbtack 
-                          size={12} 
-                          style={{ 
-                            transform: tab.pinned ? 'rotate(0deg)' : 'rotate(90deg)',
-                            transition: 'transform 0.2s'
-                          }} 
-                        />
-                      </button>
-                    </div>
-                  )}
-                </Menu.Item>
-              ))}
-            </Menu.Items>
-          </Menu>
-        )}
+  <Menu as="div" className="relative inline-block text-left ml-auto">
+    <Menu.Button 
+      ref={overflowButtonRef}
+      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+      style={{ position: 'relative', zIndex: 1 }} 
+    >
+      More ({overflowTabs.length})
+      <svg
+        className="ml-1 h-4 w-4"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    </Menu.Button>
+    <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+      <div className="py-1">
+        {overflowTabs.map((tab) => (
+          <Menu.Item key={tab.index}>
+            {({ active }) => (
+              <div className="flex items-center justify-between w-full px-4 py-2">
+                <button
+                  onClick={() => handleTabClick(tab.index)}
+                  className={`${
+                    active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                  } text-left text-sm flex-grow flex items-center`}
+                >
+                  {tab.icon && <span className="mr-2">{tab.icon}</span>}
+                  {tab.label}
+                </button>
+                
+                <button
+                  onClick={(e) => togglePin(tab.index, e)}
+                  className={`${
+                    tab.pinned ? "text-red-500" : "text-gray-400 hover:text-red-500"
+                  } flex-shrink-0 ml-2`}
+                  title={tab.pinned ? "Unpin" : "Pin"}
+                >
+                  <FaThumbtack 
+                    size={12} 
+                    style={{ 
+                      transform: tab.pinned ? 'rotate(0deg)' : 'rotate(90deg)',
+                      transition: 'transform 0.2s'
+                    }} 
+                  />
+                </button>
+              </div>
+            )}
+          </Menu.Item>
+        ))}
+      </div>
+    </Menu.Items>
+  </Menu>
+)}
+
       </div>
 
       <div className="h-4 bg-gray-100" />
